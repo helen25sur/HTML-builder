@@ -1,9 +1,12 @@
 const fs = require('fs');
 const {
-  mkdir
+  mkdir,
+  constants
 } = require('fs');
 const {
-  readdir
+  readdir,
+  unlink,
+  copyFile
 } = require('fs/promises');
 const path = require('path');
 
@@ -19,9 +22,12 @@ const path = require('path');
     const files = await readdir(__dirname, {
       withFileTypes: true
     });
+    await fs.writeFile(path.join(__dirname, 'project-dist/index.html'), '', () => {
+      console.log('Cleaned index.html');
+    });
     for (const file of files) {
       if (file.isFile() && file.name === 'template.html' && path.extname(file.name) === '.html') {
-        console.log(file.name);
+        // console.log(file.name);
         const steam = await fs.createReadStream(path.join(__dirname, file.name));
         steam.on('error', err => console.log(err));
         steam.on('data', (data) => {
@@ -36,10 +42,10 @@ const path = require('path');
           // create string for index.html
           resultStrHTML += arrTemplate[0].substring(0, arrFromTemplate[0].startIndex);
           arrFromTemplate.forEach(async (obj, i) => {
-            console.log(obj);
+            // console.log(obj);
             for (const file of filesTempl) {
               if (file.name === `${obj.nameComponent}.html`) {
-                console.log(file.name);
+                // console.log(file.name);
                 const steamRead = await fs.createReadStream(path.join(pathFolder, file.name));
                 steamRead.on('data', (data) => {
                   resultStrHTML += data.toString();
@@ -85,39 +91,84 @@ function findIndexInTemplate(arr, startPosition) {
 
 }
 
-// async function createHTMLFromTemplate(strHTML, arrReadFromHTML) {
-//   const pathFolder = path.join(__dirname, 'components');
-//   // let resultStrHTML = strHTML.substring(0, arrReadFromHTML[0].startIndex);
-//   let resultStrHTML = '';
-//   for (let i = 0; i < arrReadFromHTML.length; i++) {
-//     const obj = arrReadFromHTML[i];
-//     const files = await readdir(pathFolder, {
-//       withFileTypes: true
-//     });
-//     console.log(i);
-//     console.log(obj.nameComponent);
-//     for (const file of files) {
-//       const arrForSeparateTemplate = [];
-//       if (file.isFile() && path.extname(file.name) === '.html') {
-//         if (file.name === `${obj.nameComponent}.html`) {
-//           const steam = await fs.createReadStream(path.join(pathFolder, file.name));
-//           steam.on('error', err => console.log(err));
-//           steam.on('data', (data) => {
-//             arrForSeparateTemplate.push(data.toString());
-//             // console.log(data.toString());
-//           });
-//           steam.on('end', () => {
-//             resultStrHTML += arrForSeparateTemplate[0];
-//             if (i !== arrReadFromHTML.length - 1) {
-//               resultStrHTML += strHTML.substring(obj.endIndex + 2, arrReadFromHTML[i + 1].startIndex);
-//             } else {
-//               resultStrHTML += strHTML.substring(obj.endIndex + 2);
-//             }
-//             // console.log(resultStrHTML);
-//             return resultStrHTML;
-//           });
-//         }
-//       }
-//     }
-//   }
-// }
+// create style.css
+(async function () {
+  try {
+    const pathStyleFolder = path.join(__dirname, 'styles');
+    const files = await readdir(pathStyleFolder, {
+      withFileTypes: true
+    });
+    await fs.writeFile(path.join(__dirname, 'project-dist/style.css'), '', () => {
+      console.log('Cleaned style.css');
+    });
+    for (const file of files) {
+      if (file.isFile() && path.extname(file.name) === '.css') {
+        const arrStyle = [];
+        const steam = await fs.createReadStream(path.join(pathStyleFolder, file.name));
+        steam.on('error', err => console.log(err));
+        steam.on('data', (data) => {
+          arrStyle.push(data);
+
+          const pathBundle = path.join(__dirname, 'project-dist/style.css');
+          const steamWrite = fs.createWriteStream(pathBundle, 'utf-8');
+
+          steamWrite.on('open', () => {
+            fs.writev(0, arrStyle, () => {
+              fs.appendFile(pathBundle, arrStyle.toString(), () => {
+                console.log('Styles added to the bundle.css');
+              });
+            });
+          });
+          steamWrite.on('end', () => {
+            steamWrite.end();
+          });
+        });
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+})();
+
+// copy folder
+
+const folderDefault = path.join(__dirname, 'assets');
+
+async function copyDir(folderForCopy, nameNewFolder) {
+  const newFolderPath = path.join(__dirname, `project-dist/${nameNewFolder}`);
+  await fs.promises.mkdir(newFolderPath, {
+    recursive: true
+  });
+
+  const copyFiles = await readdir(newFolderPath, {
+    withFileTypes: true
+  });
+  console.log(copyFiles);
+  for (const file of copyFiles) {
+    if (file.isFile()) {
+      await unlink(path.join(__dirname, 'assets', file.name));
+    }
+    if (file.isDirectory()) {
+      await copyDir(path.join(newFolderPath, file.name), `assets/${file.name}`);
+    }
+  }
+
+  const files = await readdir(folderForCopy, {
+    withFileTypes: true
+  });
+  for (const file of files) {
+    if (file.isFile()) {
+      await copyFile(path.join(folderForCopy, file.name), path.join(newFolderPath, file.name), constants.COPYFILE_FICLONE);
+    }
+
+    if (file.isDirectory()) {
+      console.log('fDir');
+      console.log(file.name);
+      await copyDir(path.join(folderForCopy, file.name), `assets/${file.name}`);
+    }
+  }
+
+  console.log('All files copied!');
+}
+
+copyDir(folderDefault, 'assets');

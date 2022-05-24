@@ -132,24 +132,22 @@ function findIndexInTemplate(arr, startPosition) {
 
 // copy folder
 
-const folderDefault = path.join(__dirname, 'assets');
-
 async function copyDir(folderForCopy, nameNewFolder) {
   const newFolderPath = path.join(__dirname, `project-dist/${nameNewFolder}`);
   await fs.promises.mkdir(newFolderPath, {
     recursive: true
   });
-
+  console.log(folderForCopy);
   const copyFiles = await readdir(newFolderPath, {
     withFileTypes: true
   });
   console.log(copyFiles);
   for (const file of copyFiles) {
     if (file.isFile()) {
-      await unlink(path.join(__dirname, 'assets', file.name));
+      await unlink(path.join(newFolderPath, file.name));
     }
     if (file.isDirectory()) {
-      await copyDir(path.join(newFolderPath, file.name), `assets/${file.name}`);
+      await copyDir(path.join(folderForCopy, file.name), `${nameNewFolder}/${file.name}`);
     }
   }
 
@@ -164,11 +162,11 @@ async function copyDir(folderForCopy, nameNewFolder) {
     if (file.isDirectory()) {
       console.log('fDir');
       console.log(file.name);
-      await copyDir(path.join(folderForCopy, file.name), `assets/${file.name}`);
+      await copyDir(path.join(folderForCopy, file.name), `${nameNewFolder}/${file.name}`);
     }
   }
 
   console.log('All files copied!');
 }
 
-copyDir(folderDefault, 'assets');
+copyDir(path.join(__dirname, 'assets'), 'assets');
